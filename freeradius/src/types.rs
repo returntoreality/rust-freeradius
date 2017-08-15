@@ -242,8 +242,10 @@ impl TryFrom<value_pair> for Attribute {
         };
         Ok(match (attr.attribute as u32, attribute_type) {
             (PW_USER_NAME, AttributeType::String) => Attribute::UserName(string_value.to_owned()),
-            (PW_USER_PASSWORD, AttributeType::String) => Attribute::Password(string_value.to_owned()),
-            (PW_CHAP_PASSWORD, AttributeType::String) => Attribute::ChapPassword(string_value.to_owned())
+            (PW_USER_PASSWORD, AttributeType::String) => Attribute::UserPassword(string_value.to_owned()),
+            (PW_CHAP_PASSWORD, AttributeType::String) => Attribute::ChapPassword(string_value.to_owned()),
+            (PW_NAS_IP_ADDRESS, AttributeType::IpAddress) => Attribute::NasIpAddress(attr.lvalue.into()),
+            (PW_NAS_PORT, AttributeType::IpAddress) => Attribute::NasPort(attr.lvalue),
 
             _ => return Err(ConversionError::ValuePair)
         })
