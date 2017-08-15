@@ -1,0 +1,12 @@
+[package]
+name = "freeradius"
+version = "0.1.0"
+authors = ["Linus Lotz <linus@lotz.li>"]
+
+[dependencies]
+error-chain = "0.10"
+num = "0.1"
+num-derive = "0.1"
+#ipaddress = "0.1"
+try_from = "0.2"
+freeradius-sys = { version = "0.1", path = "../freeradius-sys" }
