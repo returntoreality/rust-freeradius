@@ -31,57 +31,20 @@ mod errors {
 pub use errors::*;
 
 mod types;
+mod client;
+
 pub use types::*;
-
-
-use std::ffi::CString;
-
-
-#[derive(Debug)]
-pub struct RadiusClient {
-    rc_handle: *mut radius::rc_handle
-}
-
-impl RadiusClient {
-    pub fn new() -> RadiusClient {
-        unsafe {
-            RadiusClient {
-                rc_handle: radius::rc_new()
-            }
-        }
-    }
-
-    pub fn from_file (file: &str) -> Result<RadiusClient> {
-        unsafe {
-            let result = radius::rc_read_config(CString::new(file)?.into_raw());
-            if result.is_null() {
-                Err(ErrorKind::ConfigFileError.into())
-            } else {
-                Ok(RadiusClient {
-                    rc_handle: result 
-                })
-            }
-        }
-    }
-}
-
-impl Drop for RadiusClient {
-    fn drop(&mut self) {
-        unsafe {
-            radius::rc_destroy(self.rc_handle);
-        }
-    }
-}
-
+pub use client::*;
 
 #[cfg(test)]
 mod tests {
-    use super::RadiusClient;
+    use client::RadiusClient;
     #[test]
-    fn it_works() {
-        {
-            let client = RadiusClient::new();
-            println!("{:?}", client);
-        }
+    fn create_new_client() {
+        let client = RadiusClient::new();
+        println!("{:?}", client);
+    }
+    fn create_from_config() {
+        let client = RadiusClient::from_file("tests/resources/working.conf").unwrap();
     }
 }

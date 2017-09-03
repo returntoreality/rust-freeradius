@@ -2,6 +2,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use radius::value_pair;
 use try_from::TryFrom;
 use radius::*;
+use radius;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::str::Utf8Error;
@@ -28,6 +29,7 @@ pub enum Attribute {
     ServiceType(ServiceType),
     FramedProtocol(Protocol),
     FramedIpAddress(Ipv4Addr),
+    FramedIpNetmask(Ipv4Addr),
     FramedRouting(RoutingValue),
     FilterId(u32),
     FramedMtu(u32),
@@ -110,7 +112,7 @@ pub enum Attribute {
 #[derive(Debug,ToPrimitive,FromPrimitive,Copy,Clone)]
 pub enum AttributeType {
     String     = 0,
-    Intger     = 1,
+    Integer     = 1,
     IpAddress  = 2,
     Date       = 3,
     Ipv6Addr   = 4,
@@ -230,6 +232,22 @@ pub enum Authentic {
     Remote = 3,
 }
 
+impl Attribute {
+    fn attribute_type(&self) -> AttributeType {
+        match self {
+            Attribute::UserPassword(..) |
+            Attribute::UserName(..) => AttributeType::String,
+            _ => unimplemented!(),
+        }
+    }
+    fn into(self, client: &RadiusClient) -> value_pair {
+        match self.attribute_type() {
+
+        }
+        radius::rc_avpair_add(client.rc_handle,self.to_u32().unwrap(),)
+    }
+}
+
 impl TryFrom<value_pair> for Attribute {
     type Err = ConversionError;
     fn try_from(attr: value_pair) -> Result<Self,ConversionError> {
@@ -241,11 +259,32 @@ impl TryFrom<value_pair> for Attribute {
             ""
         };
         Ok(match (attr.attribute as u32, attribute_type) {
-            (PW_USER_NAME, AttributeType::String) => Attribute::UserName(string_value.to_owned()),
-            (PW_USER_PASSWORD, AttributeType::String) => Attribute::UserPassword(string_value.to_owned()),
-            (PW_CHAP_PASSWORD, AttributeType::String) => Attribute::ChapPassword(string_value.to_owned()),
-            (PW_NAS_IP_ADDRESS, AttributeType::IpAddress) => Attribute::NasIpAddress(attr.lvalue.into()),
-            (PW_NAS_PORT, AttributeType::IpAddress) => Attribute::NasPort(attr.lvalue),
+            (PW_USER_NAME, AttributeType::String) =>
+                Attribute::UserName(string_value.to_owned()),
+            (PW_USER_PASSWORD, AttributeType::String) =>
+                Attribute::UserPassword(string_value.to_owned()),
+            (PW_CHAP_PASSWORD, AttributeType::String) =>
+                Attribute::ChapPassword(string_value.to_owned()),
+            (PW_NAS_IP_ADDRESS, AttributeType::IpAddress) => 
+                Attribute::NasIpAddress(attr.lvalue.into()),
+            (PW_NAS_PORT, AttributeType::IpAddress) => 
+                Attribute::NasPort(attr.lvalue),
+            (PW_SERVICE_TYPE, AttributeType::Integer) => 
+                Attribute::ServiceType(
+                    ServiceType::from_u32(attr.lvalue)
+                    .ok_or(ConversionError::ValuePair)?),
+            (PW_FRAMED_PROTOCOL, AttributeType::Integer) => 
+                Attribute::FramedProtocol(
+                    Protocol::from_u32(attr.lvalue)
+                    .ok_or(ConversionError::ValuePair)?),
+            (PW_FRAMED_IP_ADDRESS, AttributeType::IpAddress) => 
+                Attribute::FramedIpAddress(attr.lvalue.into()),
+            (PW_FRAMED_IP_NETMASK, AttributeType::IpAddress) => 
+                Attribute::FramedIpNetmask(attr.lvalue.into()),
+            (PW_FRAMED_ROUTING, AttributeType::Integer) =>
+                Attribute::FramedRouting(
+                    RoutingValue::from_u32(attr.lvalue)
+                    .ok_or(ConversionError::ValuePair)?),
 
             _ => return Err(ConversionError::ValuePair)
         })
