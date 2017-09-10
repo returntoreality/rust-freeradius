@@ -36,9 +36,9 @@ impl RadiusClient {
     pub fn auth(&mut self, client_port: u32, attributes: Vec<Attribute>) {
         unsafe {
             let result : *mut radius::VALUE_PAIR = ptr::null_mut();
-            let list : Vec<radius::VALUE_PAIR> = attributes.map(|a| a.into());
-            radius::rc_avpair_gen(self.rc_handle, list.as_ptr() as *mut VALUE_PAIR, )
-            radius::rc_auth(self.rc_handle, client_port, , &result as *mut _ )
+            let list : Vec<radius::VALUE_PAIR> = attributes.iter().map(|a| a.into());
+            rc_avpair_gen(self.rc_handle, list.as_ptr() as *mut VALUE_PAIR, )
+            rc_auth(self.rc_handle, client_port, , &result as *mut _ )
         }
     }
 }

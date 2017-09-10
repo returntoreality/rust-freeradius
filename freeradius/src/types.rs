@@ -2,11 +2,9 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use radius::value_pair;
 use try_from::TryFrom;
 use radius::*;
-use radius;
-use std::ffi::CStr;
-use std::os::raw::c_char;
 use std::str::Utf8Error;
 use num::FromPrimitive;
+use num::ToPrimitive;
 
 quick_error! {
     #[derive(Debug,Clone,Copy)]
@@ -234,17 +232,127 @@ pub enum Authentic {
 
 impl Attribute {
     fn attribute_type(&self) -> AttributeType {
-        match self {
+        match *self {
             Attribute::UserPassword(..) |
             Attribute::UserName(..) => AttributeType::String,
             _ => unimplemented!(),
         }
     }
-    fn into(self, client: &RadiusClient) -> value_pair {
-        match self.attribute_type() {
 
+    fn into(self, handle : rc_handle) -> Box<value_pair> {
+        match self.attribute_type() {
+            AttributeType::String => {
+                unsafe {
+                    Box::from_raw(rc_avpair_add(handle,self.to_u32().unwrap(),))
+                }
+            }
         }
-        radius::rc_avpair_add(client.rc_handle,self.to_u32().unwrap(),)
+    }
+
+    fn to_string_value(Self) {
+        match Self {
+            Attribute::UserName(s)|
+            Attribute::UserPassword(s)|
+            Attribute::ChapPassword(s)|
+            Attribute::OldPassword(s)|
+            Attribute::ReplyMessage(s)|
+            Attribute::LoginCallbackNumber(s)|
+            Attribute::FramedRoute(s)|
+            Attribute::State(s)|
+            Attribute::Class(s)|
+            Attribute::VendorSpecific(s)|
+            Attribute::CalledStationId(s)|
+            Attribute::CallingStationId(s)|
+            Attribute::NasIdentifier(s)|
+            Attribute::ProxyState(s)|
+            Attribute::LoginLatService(s)|
+            Attribute::LoginLatNode(s)|
+            Attribute::LoginLatGroup(s)|
+            Attribute::FramedAppletalkLink(s)|
+            Attribute::FramedAppletalkNetwork(s)|
+            Attribute::FramedAppletalkZone(s)|
+            Attribute::ChapChallenge(s)|
+            Attribute::LoginLatPort(s)|
+            Attribute::ConnectInfo(s)|
+            Attribute::MessageAuthenticator(s)|
+            Attribute::FramedInterfaceId(s)|
+            Attribute::FramedIpv6Prefix(s)|
+            Attribute::LoginIpv6Host(s)|
+            Attribute::FramedIpv6Route(s)|
+            Attribute::FramedIpv6Pool(s)|
+            Attribute::RouteIpv6Information(s)|
+            Attribute::AcctSessionId(s)|
+            Attribute::DigestResponse(s)|
+            Attribute::DigestAttributes(s)|
+            Attribute::DigestRealm(s)|
+            Attribute::DigestNonce(s)|
+            Attribute::DigestMethod(s)|
+            Attribute::DigestUri(s)|
+            Attribute::DigestQop(s)|
+            Attribute::DigestAlgorithm(s)|
+            Attribute::DigestBodyDigest(s)|
+            Attribute::DigestCnonce(s)|
+            Attribute::DigestNonceCount(s)|
+            Attribute::DigestUserName(s)|
+            Attribute::UserId(s)|
+            Attribute::UserRealm(s) => Some(s),
+            _ => None
+        }
+    }
+
+    fn to_int_value(Self) -> u32 {
+        match Self {
+            Attribute::NasPort(value)|
+            Attribute::FilterId(value)|
+            Attribute::FramedMtu(value)|
+            Attribute::FramedIpxNetwork(value)|
+            Attribute::SessionTimeout(value)|
+            Attribute::IdleTimeout(value)|
+            Attribute::EventTimestamp(value)|
+            Attribute::PortLimit(value)|
+            Attribute::AcctDelayTime(value)|
+            Attribute::AcctInputOctets(value)|
+            Attribute::AcctOutputOctets(value)|
+            Attribute::AcctSessionTime(value)|
+            Attribute::AcctInputPackets(value)|
+            Attribute::AcctOutputPackets(value)|
+            Attribute::AcctMultiSessionId(value)|
+            Attribute::AcctLinkCount(value)|
+            Attribute::AcctInputGigawords(value)|
+            Attribute::AcctOutputGigawords(value)| 
+            Attribute::LoginPort(value)|
+            Attribute::Expiration(value) => Some(value),
+            Attribute::NasIpAddress(value)|
+            Attribute::FramedIpAddress(value)|
+            Attribute::FramedIpNetmask(value)|
+            Attribute::LoginIpHost(value) => None, //TODO
+            Attribute::ServiceType(value) => Some(value.to_u32()), 
+            Attribute::FramedProtocol(value) => Some(value.to_u32()),
+            Attribute::FramedRouting(value) => Some(value.to_u32()),
+            Attribute::FramedCompression(value) => Some(value.to_u32()),
+            Attribute::TerminationAction(value) => Some(value.to_u32()),
+            Attribute::NasPortType(value) => Some(value.to_u32()),
+            Attribute::AcctStatusType(value) => Some(value.to_u32()),
+            Attribute::AcctAuthentic(value) => Some(value.to_u32()),
+            Attribute::AcctTerminateCause(value) => Some(value.to_u32()),
+        }
+    }
+}
+
+impl ToPrimitive for Attribute {
+    fn to_u64(&self) -> Option<u64> {
+        Some(match *self {
+            Attribute::UserName(..) => PW_USER_NAME,
+            Attribute::UserPassword(..) => PW_USER_PASSWORD,
+            Attribute::ChapPassword(..) => PW_CHAP_PASSWORD,
+            Attribute::NasIpAddress(..) => PW_NAS_IP_ADDRESS,
+            Attribute::NasPort(..) => PW_NAS_PORT,
+            Attribute::ServiceType(..) => PW_SERVICE_TYPE,
+            _ => return None,
+        } as u64)
+    }
+    fn to_i64(&self) -> Option<i64> {
+        self.to_u64().map(|x| x as i64)
     }
 }
 
