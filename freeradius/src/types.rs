@@ -2,20 +2,12 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use radius::value_pair;
 use try_from::TryFrom;
 use radius::*;
-use std::str::Utf8Error;
 use num::FromPrimitive;
 use num::ToPrimitive;
-
-quick_error! {
-    #[derive(Debug,Clone,Copy)]
-    pub enum ConversionError {
-        ValuePair {
-            description("Error converting value_pair")
-            display("Error converting value_pair")
-            from(Utf8Error)
-        }
-    }
-}
+use std::ffi::{CStr,CString};
+use std::os::raw::c_char;
+use std::ptr;
+use errors::*;
 
 #[derive(Debug)]
 pub enum Attribute {
@@ -239,18 +231,23 @@ impl Attribute {
         }
     }
 
-    fn into(self, handle : rc_handle) -> Box<value_pair> {
+    pub fn into_cattr(self, handle : &rc_handle, list: Option<Box<value_pair>>) -> Result<Box<value_pair>> {
+        let real_list = list.unwrap_or_else(|| unsafe{Box::from_raw(ptr::null_mut())});
         match self.attribute_type() {
             AttributeType::String => {
+                let string = self.to_string_value().unwrap();
+                let mut pointer = ptr::null_mut();
+                let c_string = CString::new(string)?;
                 unsafe {
-                    Box::from_raw(rc_avpair_add(handle,self.to_u32().unwrap(),))
+                    Box::from_raw(rc_avpair_add(handle,&pointer as *mut *mut _,self.to_i32().unwrap(),c_string,-1,0));
+                    unimplemented!()
                 }
             }
         }
     }
 
-    fn to_string_value(Self) {
-        match Self {
+    fn to_string_value(self) -> Option<String> {
+        match self {
             Attribute::UserName(s)|
             Attribute::UserPassword(s)|
             Attribute::ChapPassword(s)|
@@ -300,8 +297,8 @@ impl Attribute {
         }
     }
 
-    fn to_int_value(Self) -> u32 {
-        match Self {
+    fn to_int_value(self) -> Option<u32> {
+        match self {
             Attribute::NasPort(value)|
             Attribute::FilterId(value)|
             Attribute::FramedMtu(value)|
@@ -326,15 +323,15 @@ impl Attribute {
             Attribute::FramedIpAddress(value)|
             Attribute::FramedIpNetmask(value)|
             Attribute::LoginIpHost(value) => None, //TODO
-            Attribute::ServiceType(value) => Some(value.to_u32()), 
-            Attribute::FramedProtocol(value) => Some(value.to_u32()),
-            Attribute::FramedRouting(value) => Some(value.to_u32()),
-            Attribute::FramedCompression(value) => Some(value.to_u32()),
-            Attribute::TerminationAction(value) => Some(value.to_u32()),
-            Attribute::NasPortType(value) => Some(value.to_u32()),
-            Attribute::AcctStatusType(value) => Some(value.to_u32()),
-            Attribute::AcctAuthentic(value) => Some(value.to_u32()),
-            Attribute::AcctTerminateCause(value) => Some(value.to_u32()),
+            Attribute::ServiceType(value) => value.to_u32(), 
+            Attribute::FramedProtocol(value) => value.to_u32(),
+            Attribute::FramedRouting(value) => value.to_u32(),
+            Attribute::FramedCompression(value) => value.to_u32(),
+            Attribute::TerminationAction(value) => value.to_u32(),
+            Attribute::NasPortType(value) => value.to_u32(),
+            Attribute::AcctStatusType(value) => value.to_u32(),
+            Attribute::AcctAuthentic(value) => value.to_u32(),
+            Attribute::AcctTerminateCause(value) => value.to_u32(),
         }
     }
 }
@@ -357,9 +354,9 @@ impl ToPrimitive for Attribute {
 }
 
 impl TryFrom<value_pair> for Attribute {
-    type Err = ConversionError;
-    fn try_from(attr: value_pair) -> Result<Self,ConversionError> {
-        let attribute_type = AttributeType::from_i32(attr.type_).ok_or(ConversionError::ValuePair)?;
+    type Err = Error;
+    fn try_from(attr: value_pair) -> Result<Self> {
+        let attribute_type = AttributeType::from_i32(attr.type_).ok_or(ErrorKind::ValuePairConversionError)?;
         let string_value = if attr.type_ as u32 != PW_TYPE_INTEGER
                            && attr.type_ as u32 != PW_TYPE_DATE {
             unsafe {CStr::from_ptr(&attr.strvalue as *const c_char).to_str()?}
@@ -380,11 +377,11 @@ impl TryFrom<value_pair> for Attribute {
             (PW_SERVICE_TYPE, AttributeType::Integer) => 
                 Attribute::ServiceType(
                     ServiceType::from_u32(attr.lvalue)
-                    .ok_or(ConversionError::ValuePair)?),
+                    .ok_or(ErrorKind::ValuePairConversionError)?),
             (PW_FRAMED_PROTOCOL, AttributeType::Integer) => 
                 Attribute::FramedProtocol(
                     Protocol::from_u32(attr.lvalue)
-                    .ok_or(ConversionError::ValuePair)?),
+                    .ok_or(ErrorKind::ValuePairConversionError)?),
             (PW_FRAMED_IP_ADDRESS, AttributeType::IpAddress) => 
                 Attribute::FramedIpAddress(attr.lvalue.into()),
             (PW_FRAMED_IP_NETMASK, AttributeType::IpAddress) => 
@@ -392,9 +389,9 @@ impl TryFrom<value_pair> for Attribute {
             (PW_FRAMED_ROUTING, AttributeType::Integer) =>
                 Attribute::FramedRouting(
                     RoutingValue::from_u32(attr.lvalue)
-                    .ok_or(ConversionError::ValuePair)?),
+                    .ok_or(ErrorKind::ValuePairConversionError)?),
 
-            _ => return Err(ConversionError::ValuePair)
+            _ => return Err(ErrorKind::ValuePairConversionError)
         })
     }
 }

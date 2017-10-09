@@ -1,6 +1,6 @@
 use std::ffi::CString;
 
-use errors::*;
+use super::errors::*;
 use radius;
 use types::Attribute;
 use std::ptr;
@@ -36,9 +36,10 @@ impl RadiusClient {
     pub fn auth(&mut self, client_port: u32, attributes: Vec<Attribute>) {
         unsafe {
             let result : *mut radius::VALUE_PAIR = ptr::null_mut();
-            let list : Vec<radius::VALUE_PAIR> = attributes.iter().map(|a| a.into());
-            rc_avpair_gen(self.rc_handle, list.as_ptr() as *mut VALUE_PAIR, )
-            rc_auth(self.rc_handle, client_port, , &result as *mut _ )
+            let list : Box<radius::VALUE_PAIR> = attributes.iter().fold(None,|start,x| Some(x.into_cattr(&self.rc_handle,start))).unwrap();
+            //radius::rc_avpair_gen(self.rc_handle, list.as_ptr() as *mut radius::VALUE_PAIR, )
+            //radius::rc_auth(self.rc_handle, client_port, , &result as *mut _ )
+            unimplemented!()
         }
     }
 }

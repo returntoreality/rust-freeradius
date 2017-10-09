@@ -12,8 +12,12 @@ extern crate try_from;
 extern crate num_derive;
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate quick_error;
+
 
 mod errors {
+    use std::str::Utf8Error;
     // Create the Error, ErrorKind, ResultExt, and Result types
     error_chain!{
         foreign_links {
@@ -23,6 +27,11 @@ mod errors {
             ConfigFileError {
                 description("Error reading radius config file")
                 display("Error reading radius config file")
+            }
+            ValuePairConversionError {
+                description("Error converting value_pair")
+                display("Error converting value_pair")
+                from(Utf8Error)
             }
         }
     }
